@@ -1,0 +1,23 @@
+{
+  "websocket_server_config": {
+    "description": "WebSocket服务器配置",
+    "type": "object",
+    "items": {
+      "listening_address": {
+        "description": "WebSocket Server监听地址，默认为 0.0.0.0",
+        "type": "string",
+        "default": "0.0.0.0"
+      },
+      "listening_port": {
+        "description": "WebSocket Server监听端口，默认为8610",
+        "type": "int",
+        "default": 8610
+      },
+      "endpoint": {
+        "description": "WebSocket EndPoint",
+        "type": "string",
+        "default": "/dreamworks/ws"
+      }
+    }
+  }
+}
