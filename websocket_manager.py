@@ -18,23 +18,23 @@ class WebSocketManager:
         self.path = config["endpoint"]
         self.uri = f"ws://{self.host}:{self.port}{self.path}"
         self.servers: Dict[str, WebSocketServer] = {}
+        self.uvicorn_server = None
         self.server_tasks: Dict[str, asyncio.Task] = {}
 
     def start_server(self, handler: Callable) -> str:
-        if self.path in self.servers:
-            logger.warning(f"WebSocket服务器已在运行：{self.uri}")
-            return f"WebSocket服务器已存在：{self.uri}"
+        # if self.servers[self.uri]:
+        #     logger.warning(f"WebSocket服务器已在运行：{self.uri}")
+        #     return f"WebSocket服务器已存在：{self.uri}"
 
-        server = uvicorn.Server(uvicorn.Config(
+        server = WebSocketServer(self, handler)
+        self.servers[self.uri] = server
+        self.uvicorn_server = uvicorn.Server(uvicorn.Config(
             self.app,
             self.host,
             self.port,
         ))
 
-        asyncio.create_task(server.serve())
-        server_id = str(uuid.uuid4())
-        server = WebSocketServer(self, handler)
-        self.servers[server_id] = server
+        self.server_tasks[self.uri] = asyncio.create_task(self.uvicorn_server.serve())
 
         @self.app.websocket(self.path)
         async def websocket_endpoint(websocket: WebSocket):
@@ -42,31 +42,31 @@ class WebSocketManager:
             await server.handle_client(websocket, client_id)
 
         logger.info(f"WebSocket服务器已启动：{self.uri}")
-        return server_id
+        return self.uri
 
-    async def stop_server(self, server_id: str, reason: str = "WebSocket服务器已停止"):
-        if server_id not in self.servers:
-            logger.error(f"WebSocket服务器 {server_id} 未找到")
-            return False
-
-        server = self.servers[server_id]
+    async def stop_server(self, uri: str, reason: str = "WebSocket服务器已停止"):
+        server = self.servers[uri]
         await server.stop_all(reason)
-        del self.servers[server_id]
-        logger.info(f"WebSocket服务器 {server_id} 已停止")
+        del self.servers[uri]
+
+        await self.uvicorn_server.shutdown()
+        self.server_tasks[uri].cancel()
+        del self.server_tasks[uri]
+        logger.info(f"WebSocket服务器 {uri} 已停止")
         return True
 
-    async def send_to_client(self, server_id: str, client_id: str, message: str):
+    async def send_to_client(self, uri: str, client_id: str, message: str):
         """向特定服务器上的特定客户端发送消息"""
-        if server_id in self.servers:
-            await self.servers[server_id].send_message(client_id, message)
+        if uri in self.servers:
+            await self.servers[uri].send_message(client_id, message)
         else:
-            logger.error(f"单播消息失败，未找到用于发送单播消息的服务器：{server_id}")
+            logger.error(f"单播消息失败，未找到用于发送单播消息的服务器：{uri}")
 
-    async def broadcast(self, server_id: str, message: str):
-        if server_id in self.servers:
-            await self.servers[server_id].broadcast(message)
+    async def broadcast(self, uri: str, message: str):
+        if uri in self.servers:
+            await self.servers[uri].broadcast(message)
         else:
-            logger.error(f"广播消息失败，未找到用于发送广播消息的服务器：{server_id}")
+            logger.error(f"广播消息失败，未找到用于发送广播消息的服务器：{uri}")
 
-    def get_server_ids(self) -> list:
+    def get_servers(self) -> list:
         return list(self.servers.keys())
