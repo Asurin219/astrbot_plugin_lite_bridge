@@ -1,6 +1,6 @@
 import json
 
-from fastapi import FastAPI, WebSocket
+from fastapi import WebSocket
 
 import astrbot.core.message.components as Comp
 from astrbot.api import AstrBotConfig
@@ -27,11 +27,13 @@ class LiteBridge(Star):
         logger.info("LiteBridge插件已初始化")
 
     async def websocket_message_handler(self, websocket: WebSocket, client_id: str, message_str):
+
         try:
             message = json.loads(message_str)
             message_flag = message.get("message_flag")
             params = message.get("params", {})
-            umo = "aiocqhttp:GroupMessage:811926465"
+
+            logger.debug(f'收到Minecraft游戏消息: {message}')
 
             # 只转发特定事件到QQ
             if message_flag not in [1001, 1002, 1003, 1004, 1011, 1012, 1013, 1014, 1015]: return
@@ -59,10 +61,12 @@ class LiteBridge(Star):
             elif message_flag == 1015:
                 content = f'[{server_name}]\n{params.get("player_name")}获得成就: {params.get("advancement", "")}'
 
-            chain = MessageChain(chain=[Comp.Plain(content)])
-            await self.context.send_message(umo, chain)
+            for group_id in self.config.get("group_ids"):
+                if group_id is None: return
+                umo = f"aiocqhttp:GroupMessage:{group_id}"
 
-            logger.debug(f'收到Minecraft游戏消息: {message}')
+                chain = MessageChain(chain=[Comp.Plain(content)])
+                await self.context.send_message(umo, chain)
 
         except Exception as e:
             logger.error(f'处理Minecraft消息遇到错误: {e}')
@@ -94,8 +98,10 @@ class LiteBridge(Star):
             }
         }
 
-        for server_id in self.manager.get_server_ids():
-            await self.manager.broadcast(server_id, json.dumps(message))
+        if group_id not in self.config.get("group_ids"): return
+
+        for server in self.manager.get_servers():
+            await self.manager.broadcast(server, json.dumps(message))
 
     async def get_group_info(self, event: AstrMessageEvent):
         """获取QQ群信息"""
@@ -114,8 +120,6 @@ class LiteBridge(Star):
             return {"group_name": "未知群组"}
 
     async def terminate(self):
-        for server_id in self.manager.get_server_ids():
-            await self.manager.stop_server(server_id, "Server shutdown")
+        for server in self.manager.get_servers():
+            await self.manager.stop_server(server, "Server shutdown")
             logger.info("WebSocket服务已停止")
-
-        logger.info("LiteBridge插件已停止")
