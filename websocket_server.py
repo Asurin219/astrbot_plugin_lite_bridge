@@ -3,10 +3,11 @@ from typing import Callable, Any
 from fastapi import WebSocket, WebSocketDisconnect, status
 
 from astrbot.api import logger
+import websocket_manager
 
 
 class WebSocketServer:
-    def __init__(self, manager: Any, handler: Callable):
+    def __init__(self, manager: websocket_manager, handler: Callable):
         self.manager = manager
         self.handler = handler
         self.active_connections: dict[str, WebSocket] = {}

@@ -42,34 +42,32 @@ class LiteBridge(Star):
             content = None
 
             # 构造QQ消息内容
-            if message_flag == 1001:
-                content = f'[{server_name}] 服务器正在启动'
-            elif message_flag == 1002:
-                content = f'[{server_name}] 服务器启动完成'
-            elif message_flag == 1003:
-                content = f'[{server_name}] 服务器正在关闭'
-            elif message_flag == 1004:
-                content = f'[{server_name}] 服务器已经关闭'
-            elif message_flag == 1011:
-                content = f'[{server_name}] {params.get("player_name")} 加入了服务器'
-            elif message_flag == 1012:
-                content = f'[{server_name}] {params.get("player_name")} 离开了服务器'
-            elif message_flag == 1013:
-                content = f'[{server_name}]\n{params.get("player_name")}：{params.get("chat_message", "")}'
-            elif message_flag == 1014:
-                content = f'[{server_name}]\n{params.get("player_name")}似了~（原因：{params.get("dead_reason", "")}）'
-            elif message_flag == 1015:
-                content = f'[{server_name}]\n{params.get("player_name")}获得成就: {params.get("advancement", "")}'
+            MESSAGE_TEMPLATES = {
+                1001: f"[{server_name}] 服务器正在启动",
+                1002: f"[{server_name}] 服务器启动完成",
+                1003: f'[{server_name}] 服务器正在关闭',
+                1004: f'[{server_name}] 服务器已经关闭',
+                1011: f"[{server_name}] {params.get("player_name")} 加入了服务器",
+                1012: f"[{server_name}] {params.get("player_name")} 离开了服务器",
+                1013: f"[[{server_name}]\n{params.get("player_name")}：{params.get("chat_message", "")}",
+                1014: f"[[{server_name}]\n{params.get("player_name")}似了~（原因：{params.get("dead_reason", "")}）",
+                1015: f"[{server_name}]\n{params.get("player_name")}获得成就: {params.get("advancement", "")}"
+            }
+
+            template = MESSAGE_TEMPLATES.get(message_flag)
+            if template:
+                content = template.format(**params)
 
             for group_id in self.config.get("group_ids"):
-                if group_id is None: return
-                umo = f"aiocqhttp:GroupMessage:{group_id}"
+                if group_id is None: continue
+            umo = f"aiocqhttp:GroupMessage:{group_id}"
 
-                chain = MessageChain(chain=[Comp.Plain(content)])
-                await self.context.send_message(umo, chain)
+            chain = MessageChain(chain=[Comp.Plain(content)])
+            await self.context.send_message(umo, chain)
 
         except Exception as e:
             logger.error(f'处理Minecraft消息遇到错误: {e}')
+
 
     @filter.event_message_type(filter.EventMessageType.GROUP_MESSAGE)
     async def on_group_message(self, event: AstrMessageEvent):
@@ -103,6 +101,7 @@ class LiteBridge(Star):
         for server in self.manager.get_servers():
             await self.manager.broadcast(server, json.dumps(message))
 
+
     async def get_group_info(self, event: AstrMessageEvent):
         """获取QQ群信息"""
         if event.get_platform_name() != "aiocqhttp":
@@ -118,6 +117,7 @@ class LiteBridge(Star):
             return await client.api.call_action('get_group_info', **payloads)
         except Exception:
             return {"group_name": "未知群组"}
+
 
     async def terminate(self):
         for server in self.manager.get_servers():
