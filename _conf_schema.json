@@ -4,19 +4,27 @@
     "type": "object",
     "items": {
       "listening_address": {
-        "description": "WebSocket Server监听地址，默认为 0.0.0.0",
+        "description": "监听地址",
         "type": "string",
+        "hint":"WebSocket监听地址，默认为0.0.0.0，即监听所有地址",
         "default": "0.0.0.0"
       },
       "listening_port": {
-        "description": "WebSocket Server监听端口，默认为8610",
+        "description": "监听端口",
         "type": "int",
+        "hint": "WebSocket监听端口，默认为8610",
         "default": 8610
       },
       "endpoint": {
-        "description": "WebSocket EndPoint",
+        "description": "EndPoint",
         "type": "string",
-        "default": "/dreamworks/ws"
+        "hint": "WebSocket路径，默认为/minecraft/ws",
+        "default": "/minecraft/ws"
+      },
+      "group_ids": {
+        "description": "绑定的群聊",
+        "hint": "用于接受/发送Minecraft消息的QQ群号，可以填写多个",
+        "type": "list"
       }
     }
   }
