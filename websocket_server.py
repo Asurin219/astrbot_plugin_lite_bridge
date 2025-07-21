@@ -16,16 +16,10 @@ class WebSocketServer:
         self.active_connections[client_id] = websocket
         logger.info(f"客户端 {client_id} 已连接")
 
-    async def disconnect(self, client_id: str, code: int = status.WS_1000_NORMAL_CLOSURE, reason: str = None):
+    async def disconnect(self, client_id: str, reason: str = None):
         if client_id in self.active_connections:
-            websocket = self.active_connections[client_id]
-            try:
-                await websocket.close(code=code, reason=reason)
-            except Exception as e:
-                logger.error(f"客户端 {client_id} 关闭连接时遇到错误：{e}")
-            finally:
-                del self.active_connections[client_id]
-                logger.info(f"客户端 {client_id} 已正常断开连接，原因：{reason}")
+            logger.info(f"客户端 {client_id} 断开了连接：{reason}")
+            del self.active_connections[client_id]
 
     async def handle_client(self, websocket: WebSocket, client_id: str):
         await self.connect(websocket, client_id)
@@ -35,15 +29,14 @@ class WebSocketServer:
                     data = await websocket.receive_text()
                     await self.handler(websocket, client_id, data)
                 except WebSocketDisconnect as e:
-                    logger.info(f"客户端 {client_id} 断开连接：{e.reason}")
-                    await self.disconnect(client_id, e.code, e.reason)
+                    await self.disconnect(client_id, reason=e.reason)
                     break
                 except Exception as e:
-                    logger.error(f"Error handling message from {client_id}: {e}")
+                    logger.error(f"处理客户端 {client_id} 的消息时遇到错误：{e}")
                     await websocket.send_text(f"处理WebSocket消息时遇到错误：{str(e)}")
         finally:
             if client_id in self.active_connections:
-                await self.disconnect(client_id, reason="连接中止")
+                await self.disconnect(client_id, reason="Finally")
 
     async def send_message(self, client_id: str, message: str):
         """向特定客户端发送消息"""
