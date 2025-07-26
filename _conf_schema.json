@@ -6,7 +6,7 @@
       "listening_address": {
         "description": "监听地址",
         "type": "string",
-        "hint":"WebSocket监听地址，默认为0.0.0.0，即监听所有地址",
+        "hint": "WebSocket监听地址，默认为0.0.0.0，即监听所有地址",
         "default": "0.0.0.0"
       },
       "listening_port": {
@@ -23,8 +23,74 @@
       },
       "group_ids": {
         "description": "绑定的群聊",
-        "hint": "用于接受/发送Minecraft消息的QQ群号，可以填写多个",
+        "hint": "用于接收/发送Minecraft消息的QQ群号，可以填写多个",
         "type": "list"
+      }
+    }
+  },
+  "minecraft_message_config": {
+    "description": "Minecraft消息配置",
+    "type": "object",
+    "items": {
+      "enable_server_lifecycle_message": {
+        "description": "转发服务器启动、关闭消息",
+        "type": "bool",
+        "default": true
+      },
+      "server_started_message": {
+        "description": "服务器启动完成",
+        "type": "text",
+        "default": "[{server_name}] 服务器启动完成"
+      },
+      "server_stopped_message": {
+        "description": "服务器已关闭",
+        "type": "text",
+        "default": "[{server_name}] 服务器已关闭"
+      },
+      "enable_player_joined_left_message": {
+        "description": "转发玩家加入/离开服务器消息",
+        "type": "bool",
+        "default": true
+      },
+      "player_joined_message": {
+        "description": "玩家加入服务器",
+        "type": "text",
+        "default": "[{server_name}] 玩家{player_name}加入了服务器"
+      },
+      "player_left_message": {
+        "description": "玩家离开服务器",
+        "type": "text",
+        "default": "[{server_name}] 玩家{player_name}离开了服务器"
+      },
+      "enable_player_chat_message": {
+        "description": "转发玩家服内聊天消息",
+        "type": "bool",
+        "default": true
+      },
+      "player_chat_message": {
+        "description": "玩家服内聊天消息",
+        "type": "text",
+        "default": "[{server_name}] <{player_name}> {player_chat_message}"
+      },
+      "enable_player_dead_message": {
+        "description": "转发玩家服内死亡消息",
+        "type": "bool",
+        "default": true
+      },
+      "player_dead_message": {
+        "description": "玩家服内死亡消息",
+        "type": "text",
+        "default": "[{server_name}] {player_name}似了~（{player_dead_reason}）"
+      },
+      "enable_player_advancement_message": {
+        "description": "转发玩家成就消息",
+        "type": "bool",
+        "default": true
+      },
+      "player_advancement_message": {
+        "description": "玩家成就消息",
+        "type": "text",
+        "default": "[{server_name}] {player_name}获得了成就：{player_advancement}"
       }
     }
   }
