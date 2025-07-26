@@ -15,12 +15,13 @@ from .websocket_manager import WebSocketManager
 class LiteBridge(Star):
     def __init__(self, context: Context, config: AstrBotConfig):
         super().__init__(context)
-        self.config = config["websocket_server_config"]
+        self.websocket_config = config["websocket_server_config"]
+        self.minecraft_message_config = config["minecraft_message_config"]
         self.manager = None
 
     async def initialize(self):
         """初始化插件"""
-        self.manager = WebSocketManager(self.config)
+        self.manager = WebSocketManager(self.websocket_config)
 
         self.manager.start_server(self.websocket_message_handler)
 
@@ -41,33 +42,58 @@ class LiteBridge(Star):
             server_name = params.get("server_name")
             content = None
 
-            # 构造QQ消息内容
-            MESSAGE_TEMPLATES = {
-                1001: f"[{server_name}] 服务器正在启动",
-                1002: f"[{server_name}] 服务器启动完成",
-                1003: f'[{server_name}] 服务器正在关闭',
-                1004: f'[{server_name}] 服务器已经关闭',
-                1011: f"[{server_name}] {params.get("player_name")} 加入了服务器",
-                1012: f"[{server_name}] {params.get("player_name")} 离开了服务器",
-                1013: f"[[{server_name}]\n{params.get("player_name")}：{params.get("chat_message", "")}",
-                1014: f"[[{server_name}]\n{params.get("player_name")}似了~（原因：{params.get("dead_reason", "")}）",
-                1015: f"[{server_name}]\n{params.get("player_name")}获得成就: {params.get("advancement", "")}"
-            }
+            # 服务器生命周期消息
+            if self.minecraft_message_config.get("enable_server_lifecycle_message"):
+                if message_flag == 1001:
+                    content = self.minecraft_message_config.get("server_started_message").format(server_name=server_name)
+                elif message_flag == 1002:
+                    content = self.minecraft_message_config.get("server_stopped_message").format(server_name=server_name)
 
-            template = MESSAGE_TEMPLATES.get(message_flag)
-            if template:
-                content = template.format(**params)
+            # 玩家加入/退出服务器消息
+            if self.minecraft_message_config.get("enable_player_joined_left_message"):
+                if message_flag == 1011:
+                    content = self.minecraft_message_config.get("player_joined_message").format(server_name=server_name,
+                                                                                                player_name=params.get(
+                                                                                          "player_name"))
+                elif message_flag == 1012:
+                    content = self.minecraft_message_config.get("player_left_message").format(server_name=server_name,
+                                                                                              player_name=params.get(
+                                                                                        "player_name"))
+            # 玩家服内聊天消息
+            if self.minecraft_message_config.get("enable_player_chat_message") and message_flag == 1013:
+                content = self.minecraft_message_config.get("player_chat_message").format(server_name=server_name,
+                                                                                          player_name=params.get(
+                                                                                    "player_name"),
+                                                                                          player_chat_message=params.get(
+                                                                                    "chat_message", ""))
+            # 玩家死亡消息
+            if self.minecraft_message_config.get("enable_player_dead_message") and message_flag == 1014:
+                content = self.minecraft_message_config.get("player_dead_message").format(server_name=server_name,
+                                                                                          player_name=params.get("player_name"),
+                                                                                          player_dead_reason=params.get("dead_reason",
+                                                                                                       ""))
+            # 玩家获得成就消息
+            if self.minecraft_message_config.get("enable_player_advancement_message") and message_flag == 1015:
+                content = self.minecraft_message_config.get("player_achievement_message").format(server_name=server_name,
+                                                                                                 player_name=params.get(
+                                                                                           "player_name"),
+                                                                                                 player_advancement=params.get(
+                                                                                           "advancement",
+                                                                                           ""))
 
-            for group_id in self.config.get("group_ids"):
+            for group_id in self.websocket_config.get("group_ids"):
                 if group_id is None: continue
-            umo = f"aiocqhttp:GroupMessage:{group_id}"
+                umo = f"aiocqhttp:GroupMessage:{group_id}"
 
-            chain = MessageChain(chain=[Comp.Plain(content)])
-            await self.context.send_message(umo, chain)
+                chain = MessageChain(chain=[Comp.Plain(content)])
+                await self.context.send_message(umo, chain)
 
+        except json.JSONDecodeError as e:
+            logger.error(f"解析JSON消息失败: {e}")
+        except KeyError as e:
+            logger.error(f"缺失必要字段: {e}")
         except Exception as e:
-            logger.error(f'处理Minecraft消息遇到错误: {e}')
-
+            logger.error(f"处理Minecraft消息遇到未知错误: {e}")
 
     @filter.event_message_type(filter.EventMessageType.GROUP_MESSAGE)
     async def on_group_message(self, event: AstrMessageEvent):
@@ -96,11 +122,10 @@ class LiteBridge(Star):
             }
         }
 
-        if group_id not in self.config.get("group_ids"): return
+        if group_id not in self.websocket_config.get("group_ids"): return
 
         for server in self.manager.get_servers():
             await self.manager.broadcast(server, json.dumps(message))
-
 
     async def get_group_info(self, event: AstrMessageEvent):
         """获取QQ群信息"""
@@ -117,7 +142,6 @@ class LiteBridge(Star):
             return await client.api.call_action('get_group_info', **payloads)
         except Exception:
             return {"group_name": "未知群组"}
-
 
     async def terminate(self):
         for server in self.manager.get_servers():
