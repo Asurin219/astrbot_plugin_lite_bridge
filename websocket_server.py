@@ -3,7 +3,7 @@ from typing import Callable, Any
 from fastapi import WebSocket, WebSocketDisconnect, status
 
 from astrbot.api import logger
-import websocket_manager
+from . import websocket_manager
 
 
 class WebSocketServer:
