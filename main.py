@@ -11,7 +11,7 @@ from astrbot.core.message.message_event_result import MessageChain
 from .websocket_manager import WebSocketManager
 
 
-@register("LiteBridge", "Asurin219", "基于WebSocket的Minecraft群服互通插件", "1.0.0")
+@register("LiteBridge", "Asurin219", "基于WebSocket的Minecraft群服互通插件", "1.0.4")
 class LiteBridge(Star):
     def __init__(self, context: Context, config: AstrBotConfig):
         super().__init__(context)
@@ -83,7 +83,7 @@ class LiteBridge(Star):
 
             for group_id in self.websocket_config.get("group_ids"):
                 if group_id is None: continue
-                umo = f"aiocqhttp:GroupMessage:{group_id}"
+                umo = f"napcat:GroupMessage:{group_id}"
 
                 chain = MessageChain(chain=[Comp.Plain(content)])
                 await self.context.send_message(umo, chain)
