@@ -11,7 +11,7 @@ from astrbot.core.message.message_event_result import MessageChain
 from .websocket_manager import WebSocketManager
 
 
-@register("LiteBridge", "Asurin219", "基于WebSocket的Minecraft群服互通插件", "1.0.4")
+@register("LiteBridge", "Asurin219", "基于WebSocket的Minecraft群服互通插件", "1.0.5")
 class LiteBridge(Star):
     def __init__(self, context: Context, config: AstrBotConfig):
         super().__init__(context)
@@ -54,32 +54,32 @@ class LiteBridge(Star):
                 if message_flag == 1011:
                     content = self.minecraft_message_config.get("player_joined_message").format(server_name=server_name,
                                                                                                 player_name=params.get(
-                                                                                          "player_name"))
+                                                                                                    "player_name"))
                 elif message_flag == 1012:
                     content = self.minecraft_message_config.get("player_left_message").format(server_name=server_name,
                                                                                               player_name=params.get(
-                                                                                        "player_name"))
+                                                                                                  "player_name"))
             # 玩家服内聊天消息
             if self.minecraft_message_config.get("enable_player_chat_message") and message_flag == 1013:
                 content = self.minecraft_message_config.get("player_chat_message").format(server_name=server_name,
                                                                                           player_name=params.get(
-                                                                                    "player_name"),
+                                                                                              "player_name"),
                                                                                           player_chat_message=params.get(
-                                                                                    "chat_message", ""))
+                                                                                              "chat_message", ""))
             # 玩家死亡消息
             if self.minecraft_message_config.get("enable_player_dead_message") and message_flag == 1014:
                 content = self.minecraft_message_config.get("player_dead_message").format(server_name=server_name,
                                                                                           player_name=params.get("player_name"),
                                                                                           player_dead_reason=params.get("dead_reason",
-                                                                                                       ""))
+                                                                                                                        ""))
             # 玩家获得成就消息
             if self.minecraft_message_config.get("enable_player_advancement_message") and message_flag == 1015:
                 content = self.minecraft_message_config.get("player_achievement_message").format(server_name=server_name,
                                                                                                  player_name=params.get(
-                                                                                           "player_name"),
+                                                                                                     "player_name"),
                                                                                                  player_advancement=params.get(
-                                                                                           "advancement",
-                                                                                           ""))
+                                                                                                     "advancement",
+                                                                                                     ""))
 
             for group_id in self.websocket_config.get("group_ids"):
                 if group_id is None: continue
@@ -99,15 +99,38 @@ class LiteBridge(Star):
     async def on_group_message(self, event: AstrMessageEvent):
         """处理QQ群消息"""
         message_obj = event.message_obj
-        group_info = await self.get_group_info(event)
-        group_name = group_info["group_name"]
-        group_id = str(message_obj.group_id)
+        group_name = message_obj.group.group_name
+        group_id = message_obj.group.group_id
 
         user_name = message_obj.sender.nickname
         user_id = message_obj.sender.user_id
-        message_str = message_obj.message_str
 
-        logger.info(f'[{group_name}]<{user_name}> {message_str}')
+        raw_message = message_obj.raw_message
+        message_str = ""
+        default_message_str = "[其他消息，请在手机或电脑上查看]"
+        #        logger.warn(message_obj)
+
+        if raw_message.post_type != "message": return
+
+        #        logger.warn(raw_message.message)
+
+        message_str = "".join(
+            seg["data"]["text"] if seg["type"] == "text"
+            #                else seg["data"]["raw"].get("faceText") or "[表情]" if seg["type"] == "face"
+            else "[表情]" if seg["type"] == "face"
+            else "[动画表情]" if seg["type"] == "image" and seg["data"].get("sub_type") != 0
+            else "[引用消息]" if seg["type"] == "reply"
+            else "[图片]" if seg["type"] == "image" and seg["data"].get("sub_type") == 0
+            else "[视频]" if seg["type"] == "video"
+            else "[语音]" if seg["type"] == "record"
+            else "[文件]" if seg["type"] == "file"
+            else "[@全体成员]" if seg["type"] == "at" and seg["data"].get("qq") == "all"
+            else f'[@{seg["data"].get("qq")}]' if seg["type"] == "at"
+            else default_message_str
+            for seg in raw_message.message
+        )
+
+        #        logger.warn(message_str)
 
         # 构建QQ消息格式
         message = {
@@ -118,7 +141,7 @@ class LiteBridge(Star):
                 "member_id": user_id,
                 "member_name": user_name,
                 "chat_message": message_str,
-                "raw_message": f'§b[QQ群聊]§e ({group_name}) §a<{user_name}> §r{message_str}'
+                "raw_message": f'§b[QQ群聊]§e ({group_name}) §a<{user_name}>§r {message_str}'
             }
         }
 
